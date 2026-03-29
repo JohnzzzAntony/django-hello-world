@@ -148,12 +148,19 @@ if os.path.exists(os.path.join(BASE_DIR, '.env')):
 STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='sk_test_12345')
 STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='pk_test_12345')
 
+# Cloudinary Storage Configuration
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': env('CLOUDINARY_CLOUD_NAME', default='dltest'),
+    'API_KEY': env('CLOUDINARY_API_KEY', default='1234567'),
+    'API_SECRET': env('CLOUDINARY_API_SECRET', default='secretkey'),
+}
+
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
 
 cloudinary.config(
-  cloud_name = env('CLOUDINARY_CLOUD_NAME', default='dltest'),
-  api_key = env('CLOUDINARY_API_KEY', default='1234567'),
-  api_secret = env('CLOUDINARY_API_SECRET', default='secretkey')
+  cloud_name = CLOUDINARY_STORAGE['CLOUD_NAME'],
+  api_key = CLOUDINARY_STORAGE['API_KEY'],
+  api_secret = CLOUDINARY_STORAGE['API_SECRET']
 )
