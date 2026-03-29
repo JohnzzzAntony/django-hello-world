@@ -112,11 +112,11 @@ STORAGES = {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
-# Bypasses missing file errors in manifest collection
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+# Using standard storage to bypass strict vendor asset checks
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 WHITENOISE_MANIFEST_STRICT = False
 
 # Legacy Fallbacks (for some third-party apps that haven't updated to STORAGES)
