@@ -1,20 +1,38 @@
-*.py[cod]
+# Byte-compiled / optimized / DLL files
 __pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
 *.so
-.python-version
-.env
-.venv
+
+# Distribution / packaging
+# .venv
+.venv/
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Django
 db.sqlite3
 db.sqlite3-journal
-media/
-static/
+local_settings.py
 staticfiles/
+static/
+media/
+
+# IDE files
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# Logs
+logs/
 *.log
-local_settings.py
+
+# Sensitive
+.env
+secret_key.txt
