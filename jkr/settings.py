@@ -27,10 +27,10 @@ env = environ.Env(
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env('SECRET_KEY', default='django-insecure-sr5_wai1eqm0rk1=6wc4ztez%ut0v#h#v&ht7yuplv(+8=jdzg')
+SECRET_KEY = env('SECRET_KEY', default='django-insecure-build-placeholder-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env('DEBUG')
+DEBUG = env.bool('DEBUG', default=False)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[
     'admin.creativegradientz.com', 
