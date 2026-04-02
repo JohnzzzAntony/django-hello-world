@@ -51,13 +51,15 @@
                                     <h6 class="mb-2 text-dark font-weight-medium product-title-hover">{{ product.name }}</h6>
                                 </a>
                                 <div class="d-flex align-items-center justify-content-center mt-2">
-                                    {% if product.sale_price > 0 %}
-                                        <h6 class="font-weight-bold text-dark mb-0 mr-2">{{ product.sale_price }} AED</h6>
-                                        <small class="text-muted mr-1"><del>{{ product.regular_price }} AED</del></small>
-                                        <small class="text-success ml-2">({{ product.get_discount_percentage }}% OFF)</small>
+                                    {% with info=product.get_best_price_info %}
+                                    {% if info.has_offer %}
+                                        <h6 class="font-weight-bold text-dark mb-0 mr-2">{{ info.final_price }} AED</h6>
+                                        <small class="text-muted mr-1"><del>{{ info.regular_price }} AED</del></small>
+                                        <small class="text-success ml-2">({{ info.discount_percentage }}% OFF)</small>
                                     {% else %}
-                                        <h6 class="font-weight-bold text-dark mb-0">{{ product.regular_price }} AED</h6>
+                                        <h6 class="font-weight-bold text-dark mb-0">{{ info.final_price }} AED</h6>
                                     {% endif %}
+                                    {% endwith %}
                                 </div>
                             </div>
                             <div class="card-footer bg-transparent border-0 text-center pb-4">

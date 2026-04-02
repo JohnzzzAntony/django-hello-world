@@ -110,7 +110,8 @@ class CustomerOrder(models.Model):
 
     # ── Order Management ─────────────────────────────────────────────────────
     status          = models.CharField(max_length=30, choices=ORDER_STATUS_CHOICES, default='pending', verbose_name="Order Status")
-    total_amount    = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    shipping_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Total shipping cost for this order")
+    total_amount    = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Grand Total (Items + Shipping)")
     admin_notes     = models.TextField(blank=True, verbose_name="Internal Admin Notes")
     created_at      = models.DateTimeField(auto_now_add=True)
     updated_at      = models.DateTimeField(auto_now=True)
@@ -132,10 +133,10 @@ class CustomerOrder(models.Model):
         return f"{self.first_name} {self.last_name}"
 
     def compute_total(self):
-        total = sum(item.total_price for item in self.items.all())
-        self.total_amount = total
+        items_total = sum(item.total_price for item in self.items.all())
+        self.total_amount = items_total + self.shipping_amount
         self.save(update_fields=['total_amount'])
-        return total
+        return self.total_amount
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
@@ -173,8 +174,9 @@ class CustomerOrderItem(models.Model):
     product      = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True)
     product_name = models.CharField(max_length=255, help_text="Snapshot of name at time of order")
     quantity     = models.PositiveIntegerField(default=1)
-    unit_price   = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    total_price  = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    unit_price      = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    shipping_charge = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Shipping cost for this specific item")
+    total_price     = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     def save(self, *args, **kwargs):
         self.total_price = self.unit_price * self.quantity

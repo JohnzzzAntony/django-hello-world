@@ -36,28 +36,35 @@
                                 <tbody>
                                     {% for item in cart_items %}
                                     <tr>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <img src="{{ item.product.get_image_url }}" alt="{{ item.product.name }}"
-                                                     style="width:65px;height:65px;object-fit:contain;border-radius:8px;border:1px solid #eee;" class="mr-3">
-                                                <div>
-                                                    <a href="{% url 'product_detail' slug=item.product.slug %}"
-                                                       class="font-weight-bold text-dark text-decoration-none" style="font-size:0.95rem;">
-                                                        {{ item.product.name }}
-                                                    </a>
-                                                    {% if item.sku.title %}
-                                                    <div class="small text-primary font-weight-bold"><i class="fas fa-tag mr-1"></i> {{ item.sku.title }}</div>
-                                                    {% endif %}
-                                                    <div class="small text-muted">{{ item.product.category.name }}</div>
-                                                    {% if item.offer_name %}
-                                                    <div class="badge badge-warning text-dark mt-1" style="font-size:0.7rem;">{{ item.offer_name }}</div>
-                                                    {% endif %}
-                                                    {% if item.bogo_message %}
-                                                    <div class="small text-success mt-1"><strong><i class="fas fa-gift mr-1"></i> {{ item.bogo_message }}</strong></div>
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-                                        </td>
+                                         <td>
+                                             <div class="d-flex align-items-center">
+                                                 <img src="{{ item.product.get_image_url }}" alt="{{ item.product.name }}"
+                                                      style="width:65px;height:65px;object-fit:contain;border-radius:8px;border:1px solid #eee;" class="mr-3">
+                                                 <div>
+                                                     <a href="{% url 'product_detail' slug=item.product.slug %}"
+                                                        class="font-weight-bold text-dark text-decoration-none" style="font-size:0.95rem;">
+                                                         {{ item.product.name }}
+                                                     </a>
+                                                     {% if item.sku.title %}
+                                                     <div class="small text-primary font-weight-bold"><i class="fas fa-tag mr-1"></i> {{ item.sku.title }}</div>
+                                                     {% endif %}
+                                                     <div class="small text-muted">{{ item.product.category.name }}</div>
+                                                     
+                                                     {% if item.is_free_shipping %}
+                                                     <div class="small text-success font-weight-bold mt-1"><i class="fas fa-truck mr-1"></i> Free Shipping</div>
+                                                     {% elif item.shipping_item > 0 %}
+                                                     <div class="small text-info font-weight-bold mt-1"><i class="fas fa-truck mr-1"></i> Shipping: {{ item.shipping_item }} AED</div>
+                                                     {% endif %}
+
+                                                     {% if item.offer_name %}
+                                                     <div class="badge badge-warning text-dark mt-1" style="font-size:0.7rem;">{{ item.offer_name }}</div>
+                                                     {% endif %}
+                                                     {% if item.bogo_message %}
+                                                     <div class="small text-success mt-1"><strong><i class="fas fa-gift mr-1"></i> {{ item.bogo_message }}</strong></div>
+                                                     {% endif %}
+                                                 </div>
+                                             </div>
+                                         </td>
                                         <td class="text-center font-weight-bold">
                                             {% if item.has_offer %}
                                             <div class="d-flex flex-column align-items-center">
@@ -119,14 +126,22 @@
                         {% endwith %}
                         <hr>
                         <div class="d-flex justify-content-between mb-2">
-                            <span class="font-weight-medium">Shipping</span>
-                            <span class="text-success font-weight-bold">Calculated at checkout</span>
+                            <span class="text-muted">Subtotal</span>
+                            <span class="font-weight-bold">{{ subtotal|floatformat:2 }} AED</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Shipping</span>
+                            {% if total_shipping > 0 %}
+                            <span class="font-weight-bold">{{ total_shipping|floatformat:2 }} AED</span>
+                            {% else %}
+                            <span class="text-success font-weight-bold">FREE</span>
+                            {% endif %}
                         </div>
                         <hr>
                         <div class="d-flex justify-content-between mt-3">
-                            <h5 class="font-weight-bold">Total</h5>
+                            <h5 class="font-weight-bold">Grand Total</h5>
                             <h5 class="font-weight-bold text-primary" id="cart-total">
-                                {{ subtotal|floatformat:2 }} AED
+                                {{ grand_total|floatformat:2 }} AED
                             </h5>
                         </div>
                     </div>

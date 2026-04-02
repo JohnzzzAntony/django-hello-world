@@ -13,6 +13,7 @@ def _get_cart_items(request):
     """
     cart = request.session.get('enquiry_cart', {})
     items = []
+    total_shipping = 0
     for item_key, item_data in cart.items():
         try:
             # We first try to see if item_key is a SKU_ID (alnum string)
@@ -23,6 +24,8 @@ def _get_cart_items(request):
                 sku = product.skus.first() # Assume first SKU for basic products
             else:
                 product = sku.product
+            
+            if not sku: continue
 
             qty = int(item_data.get('quantity', 1))
             price_info = sku.get_price_info()
@@ -30,6 +33,11 @@ def _get_cart_items(request):
             unit_price = price_info['final_price']
             total_item = round(unit_price * qty, 2)
             
+            # Shipping logic
+            shipping_per_unit = 0 if sku.free_shipping else (sku.additional_shipping_charge or 0)
+            shipping_item = round(shipping_per_unit * qty, 2)
+            total_shipping += shipping_item
+
             offer_applied = price_info.get('offer')
             bogo_message = None
             if offer_applied and offer_applied.offer_type == 'bogo':
@@ -49,23 +57,28 @@ def _get_cart_items(request):
                 'unit_price': unit_price,
                 'regular_price': price_info['regular_price'],
                 'total_item': total_item,
+                'shipping_item': shipping_item,
+                'is_free_shipping': sku.free_shipping,
                 'has_offer': price_info['has_offer'],
                 'offer_name': offer_applied.name if offer_applied else None,
                 'bogo_message': bogo_message,
             })
         except (Product.DoesNotExist, ValueError):
             continue
-    return items
+    return items, round(total_shipping, 2)
 
 
 # ── Cart ─────────────────────────────────────────────────────────────────────
 
 def enquiry_cart(request):
-    cart_items = _get_cart_items(request)
+    cart_items, total_shipping = _get_cart_items(request)
     subtotal = sum(item['total_item'] for item in cart_items)
+    grand_total = subtotal + total_shipping
     return render(request, 'orders/enquiry_cart.html', {
         'cart_items': cart_items,
-        'subtotal': subtotal
+        'subtotal': subtotal,
+        'total_shipping': total_shipping,
+        'grand_total': grand_total
     })
 
 
@@ -114,7 +127,7 @@ def remove_from_cart(request, product_id):
 # ── Checkout Step 1 — Billing ─────────────────────────────────────────────────
 
 def checkout_billing(request):
-    cart_items = _get_cart_items(request)
+    cart_items, total_shipping = _get_cart_items(request)
     if not cart_items:
         messages.warning(request, "Your cart is empty.")
         return redirect('enquiry_cart')
@@ -135,22 +148,29 @@ def checkout_billing(request):
         return redirect('checkout_payment')
 
     form_data = request.session.get('checkout_billing', {})
+    subtotal = sum(item['total_item'] for item in cart_items)
     return render(request, 'orders/checkout_billing.html', {
         'cart_items': cart_items,
         'form_data': form_data,
+        'subtotal': subtotal,
+        'total_shipping': total_shipping,
+        'grand_total': subtotal + total_shipping
     })
 
 
 # ── Checkout Step 2 — Payment ─────────────────────────────────────────────────
 
 def checkout_payment(request):
-    cart_items = _get_cart_items(request)
+    cart_items, total_shipping = _get_cart_items(request)
     billing = request.session.get('checkout_billing')
 
     if not cart_items:
         return redirect('enquiry_cart')
     if not billing:
         return redirect('checkout_billing')
+
+    subtotal = sum(item['total_item'] for item in cart_items)
+    grand_total = subtotal + total_shipping
 
     if request.method == 'POST':
         payment_method = request.POST.get('payment_method', 'card')
@@ -168,11 +188,12 @@ def checkout_payment(request):
             comment=billing.get('comment', ''),
             payment_method=payment_method,
             status='pending',
-            payment_status='pending'
+            payment_status='pending',
+            shipping_amount=total_shipping,
+            total_amount=grand_total
         )
 
         # Save line items
-        total_amount = 0
         for item in cart_items:
             product = item['product']
             CustomerOrderItem.objects.create(
@@ -181,13 +202,9 @@ def checkout_payment(request):
                 product_name=f"{product.name} ({item['sku'].title})" if item.get('sku') else product.name,
                 quantity=item['quantity'],
                 unit_price=item['unit_price'],
+                shipping_charge=item['shipping_item'],
                 total_price=item['total_item']
             )
-            total_amount += item['total_item']
-        
-        # Update total amount
-        order.total_amount = total_amount
-        order.save()
 
         # Clear cart & billing from session
         request.session['enquiry_cart'] = {}
@@ -201,6 +218,9 @@ def checkout_payment(request):
     return render(request, 'orders/checkout_payment.html', {
         'cart_items': cart_items,
         'billing': billing,
+        'subtotal': subtotal,
+        'total_shipping': total_shipping,
+        'grand_total': grand_total
     })
 
 

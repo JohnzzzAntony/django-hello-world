@@ -62,7 +62,8 @@ PAYMENT_METHOD_ICONS = {
 class CustomerOrderItemInline(admin.TabularInline):
     model = CustomerOrderItem
     extra = 0
-    fields = ('product', 'product_name', 'quantity', 'unit_price', 'total_price')
+    fields = ('product', 'product_name', 'quantity', 'unit_price', 'shipping_charge', 'total_price')
+    readonly_fields = ('total_price',)
 
     def has_add_permission(self, request, obj=None):
         return True
@@ -188,7 +189,8 @@ class CustomerOrderAdmin(admin.ModelAdmin):
     # ── List display helpers ─────────────────────────────────────────────────
 
     def order_number(self, obj):
-        return format_html('<strong>#JKR-{:05d}</strong>', obj.pk)
+        if not obj.pk: return "#NEW"
+        return format_html('<strong>#JKR-{}</strong>', f"{obj.pk:05d}")
 
     order_number.short_description = "Order #"
     order_number.admin_order_field = 'id'
@@ -226,11 +228,14 @@ class CustomerOrderAdmin(admin.ModelAdmin):
     # ── Detail page readonly section headings (styled separators) ───────────
 
     def order_summary_heading(self, obj):
+        if not obj.pk or not obj.created_at:
+            return mark_safe('<div style="background:#f5f5f5;padding:10px 16px;border-radius:8px;margin:8px 0;color:#666;">'
+                             '<strong>📝 New Order Draft</strong></div>')
         return format_html(
             '<div style="background:#f0f6ff;border-left:4px solid #2271b1;padding:10px 16px;border-radius:0 8px 8px 0;margin:8px 0;">'
-            '<strong style="color:#2271b1;font-size:13px;">📋 Order #JKR-{:05d} &nbsp;|&nbsp; '
+            '<strong style="color:#2271b1;font-size:13px;">📋 Order #JKR-{} &nbsp;|&nbsp; '
             'Placed: {}</strong></div>',
-            obj.pk,
+            f"{obj.pk:05d}",
             obj.created_at.strftime("%d %b %Y, %H:%M")
         )
 
@@ -270,6 +275,9 @@ class CustomerOrderAdmin(admin.ModelAdmin):
             path('<int:order_id>/resend-notification/', 
                  self.admin_site.admin_view(self.resend_notification), 
                  name='resend-notification'),
+            path('ajax/get-product-price/',
+                 self.admin_site.admin_view(self.get_product_price),
+                 name='ajax-get-product-price'),
         ]
         return custom_urls + urls
 
@@ -281,19 +289,44 @@ class CustomerOrderAdmin(admin.ModelAdmin):
         self.message_user(request, f"Notifications have been successfully resent for Order #JKR-{order_id:05d}.")
         return redirect('admin:orders_customerorder_change', order_id)
 
+    def get_product_price(self, request):
+        from django.http import JsonResponse
+        from products.models import Product
+        product_id = request.GET.get('product_id')
+        if not product_id:
+            return JsonResponse({'error': 'No product_id provided'}, status=400)
+        
+        try:
+            product = Product.objects.get(id=product_id)
+            # Use the robust price logic we implemented earlier
+            price_info = product.get_best_price_info()
+            
+            # Find a representative SKU for shipping charges
+            sku = product.skus.first()
+            shipping_charge = 0
+            if sku:
+                shipping_charge = 0 if sku.free_shipping else (sku.additional_shipping_charge or 0)
+
+            return JsonResponse({
+                'unit_price': float(price_info['final_price']),
+                'shipping_charge': float(shipping_charge),
+                'product_name': product.name
+            })
+        except Product.DoesNotExist:
+            return JsonResponse({'error': 'Product not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
     def items_total_display(self, obj):
-        total = sum(i.total_price for i in obj.items.all())
-        rows = format_html("").join(
-            format_html(
-                '<tr><td style="padding:4px 10px;">{}</td>'
-                '<td style="padding:4px 10px;text-align:center;">{}</td>'
-                '<td style="padding:4px 10px;text-align:right;">{} {}</td>'
-                '<td style="padding:4px 10px;text-align:right;font-weight:700;">{} {}</td></tr>',
-                i.product_name,
-                i.quantity,
-                i.unit_price, settings.CURRENCY,
-                i.total_price, settings.CURRENCY
-            ) for i in obj.items.all()
+        from django.utils.html import format_html_join
+        items = obj.items.all()
+        rows = format_html_join(
+            '',
+            '<tr><td style="padding:4px 10px;">{}</td>'
+            '<td style="padding:4px 10px;text-align:center;">{}</td>'
+            '<td style="padding:4px 10px;text-align:right;">{} {}</td>'
+            '<td style="padding:4px 10px;text-align:right;font-weight:700;">{} {}</td></tr>',
+            ((i.product_name, i.quantity, i.unit_price, settings.CURRENCY, i.total_price, settings.CURRENCY) for i in items)
         )
         return format_html(
             '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
@@ -301,13 +334,21 @@ class CustomerOrderAdmin(admin.ModelAdmin):
             '<th style="padding:6px 10px;text-align:left;">Product</th>'
             '<th style="padding:6px 10px;text-align:center;">Qty</th>'
             '<th style="padding:6px 10px;text-align:right;">Unit Price</th>'
-            '<th style="padding:6px 10px;text-align:right;">Total</th></tr></thead>'
+            '<th style="padding:6px 10px;text-align:right;">Subtotal</th></tr></thead>'
             '<tbody>{}</tbody>'
-            '<tfoot><tr><td colspan="3" style="padding:8px 10px;font-weight:700;text-align:right;">Grand Total</td>'
-            '<td style="padding:8px 10px;font-weight:700;text-align:right;color:#2271b1;">{} {}</td></tr></tfoot>'
+            '<tfoot>'
+            '<tr style="border-top: 1px solid #ddd;"><td colspan="3" style="padding:8px 10px;text-align:right;color:#666;">Subtotal</td>'
+            '<td style="padding:8px 10px;text-align:right;color:#666;">{} {}</td></tr>'
+            '<tr><td colspan="3" style="padding:4px 10px;text-align:right;color:#666;">Shipping</td>'
+            '<td style="padding:4px 10px;text-align:right;color:#666;">{} {}</td></tr>'
+            '<tr style="font-weight:700;font-size:15px;"><td colspan="3" style="padding:12px 10px;text-align:right;border-top:2px solid #2271b1;">Grand Total</td>'
+            '<td style="padding:12px 10px;text-align:right;color:#2271b1;border-top:2px solid #2271b1;">{} {}</td></tr>'
+            '</tfoot>'
             '</table>',
-            rows,
-            total, settings.CURRENCY
+            mark_safe(rows),
+            sum(i.total_price for i in items), settings.CURRENCY,
+            obj.shipping_amount, settings.CURRENCY,
+            obj.total_amount, settings.CURRENCY
         )
 
     items_total_display.short_description = "Items Summary"
@@ -341,7 +382,7 @@ class CustomerOrderAdmin(admin.ModelAdmin):
         ('Order Management', {
             'fields': (
                 'management_heading',
-                ('status', 'total_amount'),
+                ('status', 'shipping_amount', 'total_amount'),
                 'resend_notification_button',
                 'admin_notes',
                 ('created_at', 'updated_at'),

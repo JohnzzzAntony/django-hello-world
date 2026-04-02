@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils.text import slugify
+from django.utils import timezone
 from ckeditor.fields import RichTextField
+from decimal import Decimal
 
 class Attribute(models.Model):
     FIELD_TYPES = (
@@ -124,6 +126,8 @@ class Product(models.Model):
                 'has_offer': sale < reg,
                 'final_price': sale,
                 'regular_price': reg,
+                'discount_amount': reg - sale,
+                'discount_percentage': self.get_discount_percentage(),
                 'discount_display': f"{self.get_discount_percentage()}% OFF" if sale < reg else None
             }
         
@@ -149,7 +153,7 @@ class Product(models.Model):
 class ProductAttributeValue(models.Model):
     product = models.ForeignKey(Product, related_name='characteristics', on_delete=models.CASCADE)
     attribute = models.ForeignKey(Attribute, on_delete=models.CASCADE)
-    value = models.CharField(max_length=255)
+    value = models.CharField(max_length=255, default="")
     def __str__(self): return f"{self.product.name} - {self.attribute.name}: {self.value}"
 
 class ProductImage(models.Model):
@@ -224,22 +228,28 @@ class ProductSKU(models.Model):
             }
         
         # Apply offer on top of CURRENT sale_price if it's set, else regular
-        base_to_discount = current_sale_price
+        base_to_discount = Decimal(str(current_sale_price))
         final_price = base_to_discount
 
         if offer.offer_type == 'percentage':
-            final_price = base_to_discount * (1 - (offer.discount_value / 100))
+            # Calculate: base * (1 - discount/100)
+            multiplier = Decimal('1') - (Decimal(str(offer.discount_value)) / Decimal('100'))
+            final_price = base_to_discount * multiplier
         elif offer.offer_type == 'fixed':
-            final_price = base_to_discount - offer.discount_value
+            final_price = base_to_discount - Decimal(str(offer.discount_value))
         elif offer.offer_type == 'final':
-            final_price = offer.discount_value
-        # Note: BOGO is typically handled in cart logic, but we track it here for badge display.
+            final_price = Decimal(str(offer.discount_value))
         
+        reg = Decimal(str(regular_price))
+        final = max(Decimal('0'), final_price.quantize(Decimal('0.01')))
+
         return {
             'has_offer': True,
             'offer': offer,
-            'regular_price': regular_price,
-            'final_price': max(0, final_price),
+            'regular_price': reg,
+            'final_price': final,
+            'discount_amount': reg - final,
+            'discount_percentage': int(round(((reg - final) / reg) * 100)) if reg > 0 else 0,
             'discount_display': f"{int(offer.discount_value)}% OFF" if offer.offer_type == 'percentage' else "OFFER"
         }
 

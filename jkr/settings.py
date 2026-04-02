@@ -191,8 +191,32 @@ JAZZMIN_SETTINGS = {
     "changeform_format": "horizontal_tabs",
     "topmenu_links": [
         {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
-        {"name": "View Site", "url": "http://localhost:8000", "new_window": True},
+        {"name": "View Site", "url": "/", "new_window": True},
     ],
+    "order_with_respect_to": [
+        "products", 
+        "orders", 
+        "core", 
+        "pages", 
+        "contact", 
+        "blog", 
+        "sliders", 
+        "auth"
+    ],
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "auth.Group": "fas fa-users",
+        "products.Product": "fas fa-box-open",
+        "products.Category": "fas fa-tags",
+        "products.ProductSKU": "fas fa-barcode",
+        "orders.CustomerOrder": "fas fa-shopping-basket",
+        "core.SiteSettings": "fas fa-cogs",
+        "pages.Page": "fas fa-file-alt",
+        "contact.QuoteEnquiry": "fas fa-envelope-open-text",
+        "blog.Post": "fas fa-newspaper",
+        "sliders.Slider": "fas fa-images",
+    },
 }
 
 # Loaded at top of file

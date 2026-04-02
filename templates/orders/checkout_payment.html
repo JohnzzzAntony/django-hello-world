@@ -177,9 +177,21 @@
                             <div class="font-weight-bold small">{{ item.total_item }} AED</div>
                         </div>
                         {% endfor %}
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted small">Subtotal</span>
+                            <span class="small font-weight-bold">{{ subtotal|floatformat:2 }} AED</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-3 pb-3 border-bottom">
+                            <span class="text-muted small">Shipping</span>
+                            {% if total_shipping > 0 %}
+                            <span class="small font-weight-bold">{{ total_shipping|floatformat:2 }} AED</span>
+                            {% else %}
+                            <span class="small font-weight-bold text-success">FREE</span>
+                            {% endif %}
+                        </div>
                         <div class="d-flex justify-content-between">
-                            <strong>Total</strong>
-                            <strong class="text-primary" id="pay-total">— AED</strong>
+                            <strong class="text-dark">Total</strong>
+                            <strong class="text-primary h5 mb-0" id="pay-total">{{ grand_total|floatformat:2 }} AED</strong>
                         </div>
                     </div>
                 </div>
@@ -216,12 +228,11 @@ document.getElementById('cardNum').addEventListener('input', function(e){
     e.target.value = parts.length ? parts.join(' ') : v;
 });
 
-// Total
+// Total (Server-side rendered grand_total is preferred)
 document.addEventListener('DOMContentLoaded', function() {
-    var totals = {% if cart_items %}[{% for item in cart_items %}{{ item.total_item }},{% endfor %}]{% else %}[]{% endif %};
-    var sum = totals.reduce(function(a,b){return a+b;}, 0);
+    var grandTotal = {{ grand_total|default:0 }};
     var el = document.getElementById('pay-total');
-    if(el) el.textContent = sum.toFixed(2) + ' AED';
+    if(el) el.textContent = grandTotal.toFixed(2) + ' AED';
 });
 </script>
 {% endblock %}
